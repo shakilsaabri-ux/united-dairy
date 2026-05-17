@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Halima Dairy Farm - Milk Supply & Bill Book</title>
+    <style>
+        :root {
+            --bg-color: #f1f5f9;
+            --card-color: #ffffff;
+            --text-dark: #0f172a;
+            --primary: #1e3a8a;
+            --success: #15803d;
+            --gray-text: #64748b;
+            --accent-purple: #7c3aed;
+            --danger: #ef4444;
+            --whatsapp-green: #25d366;
+        }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: var(--bg-color); color: var(--text-dark); margin: 0; padding: 12px; }
+        h1, h2 { text-align: center; margin: 5px 0; }
+        h2 { font-size: 14px; font-weight: 500; color: var(--gray-text); margin-bottom: 15px; }
+        
+        .nav-tabs { display: flex; gap: 8px; margin-bottom: 15px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        .nav-tabs button { padding: 10px 14px; border: none; border-radius: 8px; background: #e2e8f0; font-weight: bold; font-size: 13px; cursor: pointer; color: var(--text-dark); white-space: nowrap; }
+        .nav-tabs button.active { background: var(--primary); color: white; }
+
+        .section { display: none; background: var(--card-color); padding: 15px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.04); margin-bottom: 15px; }
+        .section.active { display: block; }
+
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .form-group { display: flex; flex-direction: column; margin-bottom: 10px; }
+        .form-group.full { grid-column: span 2; }
+        .form-group label { font-size: 11px; font-weight: 600; margin-bottom: 4px; color: var(--gray-text); }
+        .form-group input, .form-group select { padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 15px; background: #fff; }
+        
+        .btn-submit { background: var(--primary); color: white; border: none; padding: 12px; width: 100%; border-radius: 8px; font-size: 15px; font-weight: bold; cursor: pointer; margin-top: 5px; }
+        .btn-bill { background: var(--success); }
+        .btn-pay { background: var(--accent-purple); }
+        .btn-auto { background: #0284c7; color: white; margin-bottom: 15px; padding: 12px; border-radius: 8px; border: none; font-weight: bold; width: 100%; cursor: pointer; }
+        .btn-delete { background: var(--danger); color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; cursor: pointer; }
+        .btn-whatsapp { background: var(--whatsapp-green); color: white; border: none; padding: 12px; width: 100%; border-radius: 8px; font-size: 15px; font-weight: bold; cursor: pointer; margin-top: 15px; display: none; }
+
+        .table-container { overflow-x: auto; margin-top: 10px; }
+        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; }
+        th, td { padding: 10px; border-bottom: 1px solid #f1f5f9; white-space: nowrap; }
+        th { background: #f8fafc; color: var(--text-dark); font-weight: 600; }
+
+        .invoice-box { background: #fff; padding: 20px; border: 2px solid #000; border-radius: 4px; margin-top: 15px; font-family: 'Courier New', Courier, monospace; display: none; color: #000; }
+        .invoice-header { text-align: center; border-bottom: 2px dashed #000; padding-bottom: 10px; margin-bottom: 10px; }
+        .invoice-header h2 { font-size: 20px; font-weight: bold; color: #000; margin: 0; }
+        .invoice-table { width: 100%; margin: 15px 0; font-size: 12px; }
+        .invoice-table th, .invoice-table td { padding: 5px; border-bottom: 1px dashed #000; }
+    </style>
+</head>
+<body>
+
+    <h1>🥛 Halima Dairy Farm</h1>
+    <h2>Milk Inventory & Invoice Management</h2>
+
+    <div class="nav-tabs">
+        <button id="tab1" class="active" onclick="switchTab('supply')">✍️ Log Supply</button>
+        <button id="tab2" onclick="switchTab('inventory')">🚜 Daily Stock / Math</button>
+        <button id="tab3" onclick="switchTab('payments')">💰 Cash Collected</button>
+        <button id="tab4" onclick="switchTab('customers')">👥 Customers</button>
+        <button id="tab5" onclick="switchTab('billing')">📜 Bills Engine</button>
+    </div>
+
+    <!-- TAB 1: DAILY SUPPLY LOG -->
+    <div id="section-supply" class="section active">
+        <h3>⚡ Quick Auto-Fill for Fixed Regulars</h3>
+        <div class="form-grid" style="background: #f8fafc; padding: 10px; border-radius: 8px; border: 1px dashed #cbd5e1; margin-bottom: 15px;">
+            <div class="form-group">
+                <label>Target Date</label>
+                <input type="date" id="auto-date">
+            </div>
+            <div class="form-group">
+                <label>Target Shift</label>
+                <select id="auto-shift">
+                    <option value="Morning">Morning</option>
+                    <option value="Evening">Evening</option>
+                </select>
+            </div>
+            <button onclick="autoFillFixedCustomers()" class="btn-auto" style="grid-column: span 2; margin: 5px 0 0 0;">
+                🚀 Auto-Log All Fixed Customers
+            </button>
+        </div>
+
+        <h3>Record Single/Irregular Manual Entry</h3>
+        <form id="supply-form">
+            <div class="form-grid">
+                <div class="form-group full">
+                    <label>Select Customer (M/S)</label>
+                    <select id="supply-customer" required></select>
+                </div>
+                <div class="form-group">
+                    <label>Shift</label>
+                    <select id="supply-shift">
+                        <option value="Morning">Morning</option>
+                        <option value="Evening">Evening</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Date</label>
+                    <input type="date" id="supply-date" required>
+                </div>
+                <div class="form-group full">
+                    <label>Quantity Supplied (Liters) <span style="color:var(--gray-text); font-weight:normal;" id="fixed-hint"></span></label>
+                    <input type="number" id="supply-qty" step="0.1" required placeholder="0.0">
+                </div>
+            </div>
+            <button type="submit" class="btn-submit">Save Supply Entry</button>
+        </form>
+
+        <h4>Recent Supply Log</h4>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr><th>Name</th><th>Shift</th><th>Qty</th><th>Date</th><th>Action</th></tr>
+                </thead>
+                <tbody id="all-supply-log"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- TAB 2: INVENTORY AND PRODUCTION MATH ENGINE -->
+    <div id="section-inventory" class="section">
+        <h3>Shift-Wise Milk Balance & Production</h3>
+        <form id="inventory-form">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Date</label>
+                    <input type="date" id="inv-date" required>
+                </div>
+                <div class="form-group">
+                    <label>Shift</label>
+                    <select id="inv-shift">
+                        <option value="Morning">Morning</option>
+                        <option value="Evening">Evening</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Opening Milk Balance (Leftover from prev. shift)</label>
+                    <input type="number" id="inv-open-bal" step="0.1" required placeholder="0.0">
+                </div>
+                <div class="form-group">
+                    <label>Purchased Milk (From Other Herds)</label>
+                    <input type="number" id="inv-purchased" step="0.1" required placeholder="0.0">
+                </div>
+                <div class="form-group full">
+                    <label>Closing Milk Balance Left (Current Shift End)</label>
+                    <input type="number" id="inv-close-bal" step="0.1" required placeholder="0.0">
+                </div>
+            </div>
+            <button type="submit" class="btn-submit">Calculate & Save Production</button>
+        </form>
+
+        <h4>Calculated Production Log</h4>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr><th>Date</th><th>Shift</th><th>Supply</th><th>Closing Bal</th><th>Opening Bal</th><th>Purchased</th><th>Herd Yield</th><th>Action</th></tr>
+                </thead>
+                <tbody id="inventory-log-body"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- TAB 3: PAYMENTS RECEIVED COLLECTION ENGINE -->
+    <div id="section-payments" class="section">
+        <h3>Log Cash / Online Payment Received</h3>
+        <form id="payment-form">
+            <div class="form-grid">
+                <div class="form-group full">
+                    <label>Select Customer (M/S)</label>
+                    <select id="payment-customer" required></select>
+                </div>
+                <div class="form-group">
+                    <label>Amount Received (₹)</label>
+                    <input type="number" id="pay-amount" step="1" required placeholder="0.00">
+                </div>
+                <div class="form-group">
+                    <label>Date of Payment</label>
+                    <input type="date" id="pay-date" required>
+                </div>
+                <div class="form-group full">
+                    <label>Notes / Payment Mode</label>
+                    <input type="text" id="pay-notes" placeholder="e.g. Cash, GPay, Bank Transfer">
+                </div>
+            </div>
+            <button type="submit" class="btn-submit btn-pay">Record Payment</button>
+        </form>
+
+        <h4>Recent Payment Logs</h4>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr><th>Date</th><th>Customer</th><th>Amount Paid</th><th>Remarks</th><th>Action</th></tr>
+                </thead>
+                <tbody id="payment-log-body"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- TAB 4: CUSTOMER REGISTRY WITH WHATSAPP PHONE FIELD -->
+    <div id="section-customers" class="section">
+        <h3>Add Customer Account</h3>
+        <form id="customer-form">
+            <div class="form-grid">
+                <div class="form-group full">
+                    <label>Customer Name (M/S)</label>
+                    <input type="text" id="cust-name" required placeholder="M/S ABC Traders">
+                </div>
+                <div class="form-group full">
+                    <label>WhatsApp Mobile Number (With Country Code)</label>
+                    <input type="tel" id="cust-phone" required placeholder="919876543210">
+                </div>
+                <div class="form-group">
+                    <label>Supply Type</label>
+                    <select id="cust-supply-type" onchange="toggleFixedQtyInput(this.value)">
+                        <option value="irregular">Irregular / Variable</option>
+                        <option value="fixed">Fixed Daily Liters</option>
+                    </select>
+                </div>
+                <div class="form-group" id="fixed-qty-container" style="display:none;">
+                    <label>Fixed Daily Qty (Liters)</label>
+                    <input type="number" id="cust-fixed-qty" step="0.1" value="0" placeholder="e.g. 10.0">
+                </div>
+                <div class="form-group">
+                    <label>Custom Rate per Liter (₹)</label>
+                    <input type="number" id="cust-rate" step="0.1" required placeholder="0.00">
+                </div>
+                <div class="form-group">
+                    <label>Opening Starting Balance (₹)</label>
+                    <input type="number" id="cust-prev-bal" step="0.1" value="0" placeholder="0.00">
+                </div>
+            </div>
+            <button type="submit" class="btn-submit">Register Customer</button>
+        </form>
+
+        <h4>Customer Directory & Live Balances</h4>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr><th>M/S Name</th><th>Type</th><th>Rate/Ltr</th><th>Current Owed Balance</th></tr>
+                </thead>
+                <tbody id="customer-list-body"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- TAB 5: FLEXIBLE BILL GENERATION ENGINE -->
+    <div id="section-billing" class="section">
+        <h3>Generate Statement</h3>
+        <div class="form-group">
+            <label>Select Customer</label>
+            <select id="bill-customer-select"></select>
+        </div>
+        
+        <div class="form-group">
+            <label>Cycle Rule Shortcuts</label>
+            <select id="cycle-shortcut" onchange="applyCycleShortcut(this.value)">
+                <option value="custom">Manual Date Window</option>
+                <option value="week">Current Week (Sunday - Saturday)</option>
+                <option value="month">Full Current Month</option>
+                <option value="10">10-Day Slot (1 to 10)</option>
+                <option value="20">20-Day Slot (11 to 20)</option>
+                <option value="30">End-Month Slot (21 to End)</option>
+            </select>
+        </div>
+
+        <div class="form-grid">
+            <div class="form-group">
+                <label>From Date</label>
+                <input type="date" id="bill-start-date">
+            </div>
+            <div class="form-group">
+                <label>To Date</label>
+                <input type="date" id="bill-end-date">
+            </div>
+        </div>
+        <button onclick="generateInvoice()" class="btn-submit btn-bill">Generate Bill Statement</button>
+
+        <!-- WhatsApp Link Trigger Interface Element -->
+        <button id="whatsapp-share-btn" onclick="sendInvoiceToWhatsApp()" class="btn-whatsapp">
+            💬 Send Statement via WhatsApp
+        </button>
+
+        <div id="invoice-view" class="invoice-box"></div>
+    </div>
+
+    <script>
+        let customers = JSON.parse(localStorage.getItem('hCustomers')) || [];
+        let supplyLog = JSON.parse(localStorage.getItem('hSupplyLog')) || [];
+        let invLog = JSON.parse(localStorage.getItem('hInvLog')) || [];
+        let paymentLog = JSON.parse(localStorage.getItem('hPaymentLog')) || [];
+        
+        // Globally tracked dynamic string cache used for cross-application distribution routing
+        let textBackupMessageGlobal = ""; 
+        let targetClientPhoneGlobal = "";
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.nav-tabs button').forEach(b => b.classList.remove('active'));
+            document.getElementById('section-' + tabId).classList.add('active');
+            event.currentTarget.classList.add('active');
+            renderAll();
+        }
+
+        function toggleFixedQtyInput(val) {
+            document.getElementById('fixed-qty-container').style.display = (val === 'fixed') ? 'block' : 'none';
+        }
+
+        function applyCycleShortcut(val) {
+            const today = new Date();
+            const y = today.getFullYear();
+            const m = today.getMonth();
+            
+            if (val === 'week') {
+                const prevSunday = new Date(today.setDate(today.getDate() - today.getDay()));
+                const nextSaturday = new Date(prevSunday);
+                nextSaturday.setDate(nextSaturday.getDate() + 6);
+                document.getElementById('bill-start-date').valueAsDate = prevSunday;
+                document.getElementById('bill-end-date').valueAsDate = nextSaturday;
+            } else if (val === 'month') {
+                document.getElementById('bill-start-date').valueAsDate = new Date(y, m, 1);
+                document.getElementById('bill-end-date').valueAsDate = new Date(y, m + 1, 0);
+            } else if (val === '10') {
+                document.getElementById('bill-start-date').valueAsDate = new Date(y, m, 1);
+                document.getElementById('bill-end-date').valueAsDate = new Date(y, m, 10);
+            } else if (val === '20') {
+                document.getElementById('bill-start-date').valueAsDate = new Date(y, m, 11);
+                document.getElementById('bill-end-date').valueAsDate = new Date(y, m, 20);
+            } else if (val === '30') {
+                document.getElementById('bill-start-date').valueAsDate = new Date(y, m, 21);
+                document.getElementById('bill-end-date').valueAsDate = new Date(y, m + 1, 0);
+            }
+        }
+
+        function deleteSupplyEntry(index) {
+            if (confirm("Delete supply record?")) {
+                const originalIndex = supplyLog.length - 1 - index;
+                supplyLog.splice(originalIndex, 1);
+                localStorage.setItem('hSupplyLog', JSON.stringify(supplyLog));
+                renderAll();
+            }
+        }
+
+        function deleteInventoryEntry(index) {
+            if (confirm("Delete production record?")) {
+                const originalIndex = invLog.length - 1 - index;
+                invLog.splice(originalIndex, 1);
+                localStorage.setItem('hInvLog', JSON.stringify(invLog));
+                renderAll();
+            }
+        }
+
+        function deletePaymentEntry(index) {
+            if (confirm("Delete payment record?")) {
+                const originalIndex = paymentLog.length - 1 - index;
+                paymentLog.splice(originalIndex, 1);
+                localStorage.setItem('hPaymentLog', JSON.stringify(paymentLog));
+                renderAll();
+            }
+        }
+
+        function autoFillFixedCustomers() {
+            const targetDate = document.getElementById('auto-date').value;
+            const targetShift = document.getElementById('auto-shift').value;
+            
+            if (!targetDate) {
+                alert("Please select date!");
+                return;
+            }
+
+            let addCount = 0;
+            customers.forEach(c => {
+                if (c.supplyType === 'fixed' && parseFloat(c.fixedQty) > 0) {
+                    const duplicate = supplyLog.find(s => s.customerId === c.id && s.date === targetDate && s.shift === targetShift);
+                    if (!duplicate) {
+                        supplyLog.push({
+                            customerId: c.id,
+                            shift: targetShift,
+                            date: targetDate,
+                            qty: parseFloat(c.fixedQty)
+                        });
+                        addCount++;
+                    }
+                }
+            });
+
+            if (addCount > 0) {
+                localStorage.setItem('hSupplyLog', JSON.stringify(supplyLog));
+                renderAll();
+                alert(`Logged milk for \${addCount} fixed customers!`);
+            } else {
+                alert("No new fixed entries to add.");
+            }
+        }
+
+        document.getElementById('customer-form').addEventListener('submit', function(e){
+            e.preventDefault();
+            const sType = document.getElementById('cust-supply-type').value;
+            
+            // Clean phone string variations
+            let cleanPhone = document.getElementById('cust-phone').value.replace(/\D/g, '');
+            
+            customers.push({
+                id: Date.now().toString(),
+                name: document.getElementById('cust-name').value.trim(),
+                phone: cleanPhone,
+                supplyType: sType,
+                fixedQty: sType === 'fixed' ? parseFloat(document.getElementById('cust-fixed-qty').value) : 0,
+                rate: parseFloat(document.getElementById('cust-rate').value),
+                prevBal: parseFloat(document.getElementById('cust-prev-bal').value) || 0
+            });
+            localStorage.setItem('hCustomers', JSON.stringify(customers));
+            this.reset();
+            toggleFixedQtyInput('irregular');
+            renderAll();
+        });
+
+        document.getElementById('supply-form').addEventListener('submit', function(e){
+            e.preventDefault();
+            supplyLog.push({
+                customerId: document.getElementById('supply-customer').value,
+                shift: document.getElementById('supply-shift').value,
+                date: document.getElementById('supply-date').value,
+                qty: parseFloat(document.getElementById('supply-qty').value)
+            });
+            localStorage.setItem('hSupplyLog', JSON.stringify(supplyLog));
+            this.reset();
+            document.getElementById('supply-date').valueAsDate = new Date();
+            renderAll();
+        });
+
+        document.getElementById('supply-customer').addEventListener('change', function() {
+            const cObj = customers.find(c => c.id === this.value);
+            const hint = document.getElementById('fixed-hint');
+            if (cObj && cObj.supplyType === 'fixed') {
+                hint.innerText = `(Fixed Default: ${cObj.fixedQty} L)`;
+            } else {
+                hint.innerText = '';
+            }
+        });
+
+        document.getElementById('payment-form').addEventListener('submit', function(e){
+            e.preventDefault();
+            paymentLog.push({
+                customerId: document.getElementById('payment-customer').value,
+                amount: parseFloat(document.getElementById('pay-amount').value),
+                date: document.getElementById('pay-date').value,
+                notes: document.getElementById('pay-notes').value.trim() || 'Cash'
+            });
+            localStorage.setItem('hPaymentLog', JSON.stringify(paymentLog));
+            this.reset();
+            document.getElementById('pay-date').valueAsDate = new Date();
+            renderAll();
+            alert("Payment Recorded!");
+        });
+
+        document.getElementById('inventory-form').addEventListener('submit', function(e){
+            e.preventDefault();
+            const targetDate = document.getElementById('inv-date').value;
+            const targetShift = document.getElementById('inv-shift').value;
+            const openBal = parseFloat(document.getElementById('inv-open-bal').value) || 0;
+            const closeBal = parseFloat(document.getElementById('inv-close-bal').value) || 0;
+            const purchased = parseFloat(document.getElementById('inv-purchased').value) || 0;
+
+            let shiftSupplyTotal = 0;
+            supplyLog.forEach(s => {
+                if(s.date === targetDate && s.shift === targetShift) {
+                    shiftSupplyTotal += s.qty;
+                }
+            });
+
+            const productionYield = shiftSupplyTotal + closeBal - openBal - purchased;
+
+            invLog.push({
+                date: targetDate,
+                shift: targetShift,
+                supply: shiftSupplyTotal,
+                openBal: openBal,
+                closeBal: closeBal,
+                purchased: purchased,
+                yield: productionYield
+            });
+
+            localStorage.setItem('hInvLog', JSON.stringify(invLog));
+            this.reset();
+            document.getElementById('inv-date').valueAsDate = new Date();
+            renderAll();
+        });
+
+        function getLiveCustomerBalance(customerObj) {
+            let runningBalance = customerObj.prevBal;
+            supplyLog.forEach(log => {
+                if (log.customerId === customerObj.id) {
+                    runningBalance += (log.qty * customerObj.rate);
+                }
+            });
+            paymentLog.forEach(pay => {
+                if (pay.customerId === customerObj.id) {
+                    runningBalance -= pay.amount;
+                }
+            });
+            return runningBalance;
+        }
+
+        function renderAll() {
+            const sSelect = document.getElementById('supply-customer');
+            const pSelect = document.getElementById('payment-customer');
+            const bSelect = document.getElementById('bill-customer-select');
+            sSelect.innerHTML = ''; pSelect.innerHTML = ''; bSelect.innerHTML = '';
+            
+            customers.forEach(c => {
+                let opt = `<option value="${c.id}">${c.name}</option>`;
+                sSelect.innerHTML += opt; pSelect.innerHTML += opt; bSelect.innerHTML += opt;
+            });
+
+            if(customers.length > 0) document.getElementById('supply-customer').dispatchEvent(new Event('change'));
+
+            const cBody = document.getElementById('customer-list-body');
+            cBody.innerHTML = '';
+            customers.forEach(c => {
+                let liveBal = getLiveCustomerBalance(c);
+                let typeLabel = c.supplyType === 'fixed' ? `Fixed (${c.fixedQty}L)` : 'Irregular/Variable';
+                cBody.innerHTML += `<tr><td><strong>${c.name}</strong></td><td>${typeLabel}</td><td>₹${c.rate}/Ltr</td><td>₹${liveBal.toFixed(2)}</td></tr>`;
+            });
+
+            const iBody = document.getElementById('inventory-log-body');
+            iBody.innerHTML = '';
+            invLog.slice().reverse().forEach((i, index) => {
+                iBody.innerHTML += `<tr>
+                    <td>${i.date}</td>
+                    <td>${i.shift}</td>
+                    <td>${i.supply} L</td>
+                    <td>${i.closeBal} L</td>
+                    <td>${i.openBal} L</td>
+                    <td>${i.purchased} L</td>
+                    <td><strong>${i.yield.toFixed(1)} L</strong></td>
+                    <td><button class="btn-delete" onclick="deleteInventoryEntry(${index})">Delete</button></td>
+                </tr>`;
+            });
+
+            const pBody = document.getElementById('payment-log-body');
+            pBody.innerHTML = '';
+            paymentLog.slice().reverse().forEach((p, index) => {
+                const cObj = customers.find(c => c.id === p.customerId);
+                pBody.innerHTML += `<tr>
+                    <td>${p.date}</td>
+                    <td><strong>${cObj ? cObj.name : 'Unknown'}</strong></td>
+                    <td style="color:var(--success); font-weight:bold;">₹${p.amount}</td>
+                    <td>${p.notes}</td>
+                    <td><button class="btn-delete" onclick="deletePaymentEntry(${index})">Delete</button></td>
+                </tr>`;
+            });
+
+            const tBody = document.getElementById('all-supply-log');
+            tBody.innerHTML = '';
+            supplyLog.slice().reverse().forEach((s, index) => {
+                const cObj = customers.find(c => c.id === s.customerId);
+                tBody.innerHTML += `<tr>
+                    <td><strong>${cObj ? cObj.name : 'Unknown'}</strong></td>
+                    <td>${s.shift}</td>
+                    <td>${s.qty} L</td>
+                    <td>${s.date}</td>
+                    <td><button class="btn-delete" onclick="deleteSupplyEntry(${index})">Delete</button></td>
+                </tr>`;
+            });
+        }
+
+        function generateInvoice() {
+            const custId = document.getElementById('bill-customer-select').value;
+            const startStr = document.getElementById('bill-start-date').value;
+            const endStr = document.getElementById('bill-end-date').value;
+            const customerObj = customers.find(c => c.id === custId);
+            
+            if (!customerObj || !startStr || !endStr) {
+                alert("Please select customer, start date, and end date!");
+                return;
+            }
+
+            const start = new Date(startStr);
+            const end = new Date(endStr);
+            
+            let pastBalance = customerObj.prevBal;
+            supplyLog.forEach(log => {
+                if (log.customerId === custId && new Date(log.date) < start) {
+                    pastBalance += (log.qty * customerObj.rate);
+                }
+            });
+            paymentLog.forEach(pay => {
+                if (pay.customerId === custId && new Date(pay.date) < start) {
+                    pastBalance -= pay.amount;
+                }
+            });
+
+            let totalQty = 0;
+            let rowsHTML = '';
+            
+            // Build text blocks optimized for messaging interfaces
+            let whatsAppItemsText = "";
+
+            supplyLog.sort((a,b) => new Date(a.date) - new Date(b.date)).forEach(log => {
+                if (log.customerId === custId) {
+                    const logDate = new Date(log.date);
+                    if (logDate >= start && logDate <= end) {
+                        const lineTotal = log.qty * customerObj.rate;
+                        totalQty += log.qty;
+                        rowsHTML += `<tr>
+                            <td>${log.date} (${log.shift.substring(0,3)})</td>
+                            <td>${log.qty.toFixed(1)} L</td>
+                            <td>₹${customerObj.rate.toFixed(2)}</td>
+                            <td>₹${lineTotal.toFixed(2)}</td>
+                        </tr>`;
+                        whatsAppItemsText += `▪️ ${log.date} [${log.shift.substring(0,1)}]: ${log.qty.toFixed(1)}L x ₹${customerObj.rate} = ₹${lineTotal.toFixed(0)}\n`;
+                    }
+                }
+            });
+
+            let periodPayments = 0;
+            let paymentRowsHTML = '';
+            paymentLog.forEach(pay => {
+                if (pay.customerId === custId) {
+                    const payDate = new Date(pay.date);
+                    if (payDate >= start && payDate <= end) {
+                        periodPayments += pay.amount;
+                        paymentRowsHTML += `<div>• Paid ₹${pay.amount} on ${pay.date} (${pay.notes})</div>`;
+                    }
+                }
+            });
+
+            const currentPeriodBill = totalQty * customerObj.rate;
+            const totalDue = currentPeriodBill + pastBalance - periodPayments;
+
+            // Generate clean plain text format explicitly designed for neat line presentation on WhatsApp
+            targetClientPhoneGlobal = customerObj.phone || "";
+            textBackupMessageGlobal = `*HALIMA DAIRY FARM*\n` +
+                                      `*M/S:* ${customerObj.name}\n` +
+                                      `*Period:* ${startStr} to ${endStr}\n` +
+                                      `---------------------------\n` +
+                                      `${whatsAppItemsText || 'No entry found\n'}` +
+                                      `---------------------------\n` +
+                                      `🥛 Total Milk: ${totalQty.toFixed(1)} Ltrs\n` +
+                                      `▪️ Previous Balance: ₹${pastBalance.toFixed(2)}\n` +
+                                      `▪️ Current Charges: ₹${currentPeriodBill.toFixed(2)}\n` +
+                                      `▪️ Payments Cleared: ₹${periodPayments.toFixed(2)}\n` +
+                                      `---------------------------\n` +
+                                      `💰 *TOTAL DUE AMOUNT: ₹${totalDue.toFixed(2)}*\n\n` +
+                                      `Thank you for your business! 🙏`;
+
+            document.getElementById('whatsapp-share-btn').style.display = 'block';
+
+            const view = document.getElementById('invoice-view');
+            view.style.display = 'block';
+            view.innerHTML = `
+                <div class="invoice-header">
+                    <h2>HALIMA DAIRY FARM</h2>
+                    <p style="margin:2px 0; font-size:12px;">Premium Buffalo Milk Supplier</p>
+                </div>
+                <div style="font-size:13px; margin-bottom:10px;">
+                    <div><strong>M/S:</strong> ${customerObj.name}</div>
+                    <div><strong>Bill Period:</strong> ${startStr} to ${endStr}</div>
+                </div>
+                <table class="invoice-table">
+                    <thead>
+                        <tr><th>Date</th><th>Milk Qty</th><th>Rate</th><th>Amount</th></tr>
+                    </thead>
+                    <tbody>
+                        ${rowsHTML || '<tr><td colspan="4" style="text-align:center;">No deliveries flagged for this span</td></tr>'}
+                    </tbody>
+                </table>
+                <div style="text-align:right; font-size:13px; line-height: 1.6;">
+                    <div>Total Milk Delivered: <strong>${totalQty.toFixed(1)} Ltrs</strong></div>
+                    <div>Previous Balance Carried: <strong>₹${pastBalance.toFixed(2)}</strong></div>
+                    <div>(+) Current Cycle Charges: <strong>₹${currentPeriodBill.toFixed(2)}</strong></div>
+                    <div>(-) Payments Received in Cycle: <strong style="color:var(--success);">₹${periodPayments.toFixed(2)}</strong></div>
+                    <hr style="border-top:1px dashed #000; margin: 5px 0;">
+                    <div style="font-size:
